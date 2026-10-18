@@ -39,10 +39,55 @@ Quiz progress is saved in your browser's localStorage only. Nothing is collected
 
 ## How to study with it
 
-1. Pick one scenario in **Trace a request** and say each step out loud before clicking Next.
-2. Use **Kill a component** to practise the troubleshooting reflex: symptom, component, first command.
-3. Run the **Quiz** for 10 minutes a day.
-4. Reproduce each break-fix on a real kubeadm cluster (Lima or Multipass VMs on an Apple Silicon Mac work well). The explorer is a memory aid, not a replacement for hands-on practice.
+The rule: **predict first, then click**. Recalling an answer (even a wrong one) sticks far better than reading it.
+
+### Step 1: Learn the map (Explore, ~30 min)
+1. Open **Explore** and go through the components in this order: `kubectl` → `kube-apiserver` → `etcd` → `kube-scheduler` → `controller-manager` → `kubelet` → `containerd` → `CNI` → `kube-proxy` → `CoreDNS`.
+2. For each one, cover the side panel and say out loud: *what it does, which port it uses, which file or manifest configures it.* Then read the panel to check yourself.
+3. Click every **arrow** and ask: *who opens this connection, and why?* Remember the rule: only the API server talks to etcd, and everything else talks to the API server.
+
+### Step 2: Learn the flows (Trace a request, ~20 min per scenario)
+1. Start with **kubectl apply a Deployment**. It touches nearly every component.
+2. Before each click on **Next**, answer: *which component acts now, and what does it write or call?*
+3. Do the scenarios in this order: Deployment → Service + DNS → logs/exec → node NotReady → control plane boot.
+4. Read the **CKA angle** box at the end of each scenario. It maps the flow to a symptom you will see in the exam.
+
+### Step 3: Learn to troubleshoot (Kill a component, ~15 min per component)
+1. Start with the common ones: scheduler, controller-manager, API server, etcd, kubelet, CNI, CoreDNS.
+2. Before clicking **Reveal impact**, write down three things: *what stops, what keeps running, what I would see in kubectl.*
+3. Then compare with the answer and copy the debug commands. Practise typing them from memory.
+4. Aim to be able to say instantly: *Pending with no events → scheduler. Deployment makes no Pods → controller-manager. Connection refused on 6443 → API server. Node NotReady → kubelet, runtime or CNI.*
+
+### Step 4: Drill daily (Quiz, 10 min)
+1. Begin with the **Ports** and **Files** decks, then move to **Flow**, **Troubleshoot** and **Ops**.
+2. Rate honestly: *Missed it* brings the card back soon; *Got it* pushes it out. Only press 3 if you answered correctly before revealing.
+3. Use **See on map** after a miss to revisit that component in Explore.
+4. Stop when your known-card bar stops growing. Short daily sessions beat one long one.
+
+### Step 5: Prove it on a real cluster (hands-on)
+The explorer is a memory aid, not a replacement for practice. Build a multi-node kubeadm cluster (Lima or Multipass VMs work well on an Apple Silicon Mac), then repeat each Kill scenario for real:
+
+| Explorer scenario | Real drill |
+|---|---|
+| Kill scheduler | Move `kube-scheduler.yaml` out of `/etc/kubernetes/manifests`, create a Pod, watch it stay Pending, restore the file |
+| Kill kubelet | `systemctl stop kubelet` on a worker, watch the node go NotReady, then fix it using only `journalctl` |
+| Kill API server | Put a typo in a flag in `kube-apiserver.yaml`, then diagnose with `crictl ps -a` and `crictl logs` |
+| etcd | Take a snapshot, restore it to a new data dir, and update the hostPath in `etcd.yaml` |
+| Kill CNI / CoreDNS | Remove the CNI config or scale CoreDNS to 0, then see what breaks and fix it |
+| Certificates | Run `kubeadm certs check-expiration`, renew them, and restart the static Pods |
+
+### Suggested 7-day loop
+| Day | Focus |
+|---|---|
+| 1 | Explore: all components and arrows |
+| 2 | Trace: Deployment + Service/DNS scenarios |
+| 3 | Trace: logs/exec, NotReady, control plane boot |
+| 4 | Kill mode: control plane components, then a real cluster drill |
+| 5 | Kill mode: node and network components, then a real cluster drill |
+| 6 | Quiz (all decks), plus draw the architecture from memory on paper |
+| 7 | Timed practice on a real cluster; note what you missed and repeat it next week |
+
+Each week, redo the loop and spend extra time on whatever the Quiz shows as "learning". Closer to the exam, add timed practice (the exam simulator included with your exam registration is worth using) and the kubectl speed habits: aliases, `--dry-run=client -o yaml`, and `kubectl explain`.
 
 ## Scope and accuracy
 
