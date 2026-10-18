@@ -1,0 +1,726 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CKA Architecture Explorer</title>
+<style>
+:root{
+  --bg:#f6f6f2;--surface:#ffffff;--surface2:#f0f0ea;--ink:#1c1d1f;--muted:#666a72;--line:#d8dadf;
+  --accent:#2f6fed;--edge:#8a8f99;--bad:#d93a40;--bad-bg:#fde3e4;--warn:#e29a10;--ok:#2b9a58;
+  --c-client:#e9eaed;--c-client-s:#868b95;
+  --c-control:#dce8ff;--c-control-s:#2f6fed;
+  --c-node:#d4f1e8;--c-node-s:#12936f;
+  --c-addon:#ebdffb;--c-addon-s:#7a4fd0;
+  --c-work:#fdecc9;--c-work-s:#bf8412;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#131416;--surface:#1c1e21;--surface2:#25282c;--ink:#ececee;--muted:#9a9fa8;--line:#34373d;
+  --accent:#6b9bff;--edge:#6d727c;--bad:#ff6b70;--bad-bg:#4a1f22;--warn:#f2b13c;--ok:#4cc27f;
+  --c-client:#2a2c31;--c-client-s:#7d818b;
+  --c-control:#1a2b4c;--c-control-s:#6b9bff;
+  --c-node:#12362d;--c-node-s:#3fcf9f;
+  --c-addon:#2d2146;--c-addon-s:#b08cf5;
+  --c-work:#3b2e12;--c-work-s:#e8b043;
+}}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif}
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--surface);position:sticky;top:0;z-index:5}
+header h1{font-size:17px;margin:0;font-weight:650;letter-spacing:-.01em}
+nav{display:flex;flex-wrap:wrap;gap:6px}
+nav button{border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:6px 12px;border-radius:999px;font:inherit;font-size:14px;cursor:pointer}
+nav button:hover{border-color:var(--accent)}
+nav button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+main{padding:16px 20px 40px;max-width:1500px;margin:0 auto}
+.split{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(320px,1fr);gap:18px;align-items:start}
+@media (max-width:980px){.split{grid-template-columns:1fr}}
+.mapCol{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px 12px}
+#toolbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:34px;padding:2px 2px 8px}
+.hint{color:var(--muted);font-size:13px}
+.chip{border:1px solid var(--line);background:var(--surface2);color:var(--ink);border-radius:999px;padding:4px 11px;font:inherit;font-size:13px;cursor:pointer}
+.chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.chip.danger{border-color:var(--bad);color:var(--bad);background:transparent}
+svg#map{width:100%;height:auto;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:12px;padding:8px 4px 0;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px;border:1.5px solid}
+.region rect{fill:none;stroke:var(--line);stroke-width:1.5;stroke-dasharray:6 5}
+.region text{font:600 11px system-ui;letter-spacing:.08em;fill:var(--muted)}
+.edge .line{fill:none;stroke:var(--edge);stroke-width:1.6}
+.edge .hit{fill:none;stroke:transparent;stroke-width:16;cursor:pointer}
+.edge text{font:10.5px system-ui;fill:var(--muted);paint-order:stroke;stroke:var(--surface);stroke-width:4px;stroke-linejoin:round;pointer-events:none}
+.edge.on .line{stroke:var(--accent);stroke-width:3;stroke-dasharray:7 5;animation:dash .7s linear infinite}
+.edge.on text{fill:var(--accent);font-weight:650}
+.edge.sel .line{stroke:var(--accent);stroke-width:2.6}
+.edge.cut .line{stroke:var(--bad);stroke-dasharray:3 5}
+@keyframes dash{to{stroke-dashoffset:-12}}
+.node{cursor:pointer;outline:none}
+.node rect{stroke-width:1.5;transition:stroke-width .12s,opacity .12s}
+.node.client rect{fill:var(--c-client);stroke:var(--c-client-s)}
+.node.control rect{fill:var(--c-control);stroke:var(--c-control-s)}
+.node.node rect{fill:var(--c-node);stroke:var(--c-node-s)}
+.node.addon rect{fill:var(--c-addon);stroke:var(--c-addon-s)}
+.node.work rect{fill:var(--c-work);stroke:var(--c-work-s)}
+.node text{pointer-events:none;fill:var(--ink)}
+.node .t1{font:650 12.5px system-ui}
+.node .t2{font:10.5px system-ui;fill:var(--muted)}
+.node .xmark{display:none;font:700 15px system-ui;fill:var(--bad)}
+.node:hover rect,.node:focus rect{stroke-width:2.8}
+.node.sel rect{stroke:var(--accent);stroke-width:3.2}
+.node.hl rect{stroke:var(--accent);stroke-width:3.4;filter:drop-shadow(0 0 7px var(--accent))}
+.node.dead rect{fill:var(--bad-bg);stroke:var(--bad);stroke-width:3.2}
+.node.dead .xmark{display:block}
+.node.hit rect{stroke:var(--warn);stroke-width:3;stroke-dasharray:5 3}
+.node.dim{opacity:.4}
+aside#panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px 18px;position:sticky;top:76px;max-height:calc(100vh - 92px);overflow:auto}
+@media (max-width:980px){aside#panel{position:static;max-height:none}}
+aside h2{margin:0 0 2px;font-size:19px;letter-spacing:-.01em}
+aside h3{margin:16px 0 6px;font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:650}
+aside p{margin:6px 0}
+aside ul{margin:4px 0;padding-left:18px}
+aside li{margin:3px 0}
+.m{color:var(--muted);font-size:12.5px}
+.badge{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin:0 4px 4px 0}
+.port{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;background:var(--surface2);border-radius:6px;padding:2px 7px;display:inline-block;margin:2px 4px 2px 0}
+code,.cmdline code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+p code,li code{background:var(--surface2);padding:1px 5px;border-radius:5px}
+a[data-go]{color:var(--accent);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.cmdline{display:block;width:100%;text-align:left;margin:4px 0;padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface2);color:var(--ink);cursor:copy;word-break:break-all}
+.cmdline:hover{border-color:var(--accent)}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:6px 12px;font:inherit;font-size:14px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.good{border-color:var(--ok);color:var(--ok)}
+.btn.bad{border-color:var(--bad);color:var(--bad)}
+.btn:disabled{opacity:.4;cursor:default}
+.ctrls{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0}
+.stephead{font-size:12px;color:var(--accent);font-weight:650;margin-top:14px;text-transform:uppercase;letter-spacing:.08em}
+.stept{margin:2px 0 4px!important;font-size:16px!important;text-transform:none!important;letter-spacing:0!important;color:var(--ink)!important}
+ol.steps{list-style:none;counter-reset:s;padding:0;margin:8px 0}
+ol.steps li{counter-increment:s;padding:4px 8px 4px 30px;position:relative;border-radius:8px;cursor:pointer;font-size:13.5px;color:var(--muted)}
+ol.steps li::before{content:counter(s);position:absolute;left:6px;top:4px;width:18px;height:18px;border-radius:50%;border:1px solid var(--line);font-size:11px;text-align:center;line-height:16px}
+ol.steps li.done{color:var(--ink)}
+ol.steps li.done::before{background:var(--surface2)}
+ol.steps li.on{background:var(--surface2);color:var(--ink);font-weight:600}
+ol.steps li.on::before{background:var(--accent);border-color:var(--accent);color:#fff}
+.tip{margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--surface2);font-size:13.5px;border-left:3px solid var(--accent)}
+.box{padding:10px 12px;border-radius:10px;margin:8px 0;font-size:14px}
+.box.bad{background:var(--bad-bg);border-left:3px solid var(--bad)}
+.box.ok{background:var(--surface2);border-left:3px solid var(--ok)}
+.box.warn{background:var(--surface2);border-left:3px solid var(--warn)}
+/* quiz + commands */
+.wide{max-width:860px;margin:0 auto}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:26px 28px;margin:14px 0;min-height:230px;display:flex;flex-direction:column}
+.card .tag{font-size:12px;color:var(--accent);font-weight:650;text-transform:uppercase;letter-spacing:.08em}
+.card .q{font-size:21px;line-height:1.35;margin:10px 0 14px;letter-spacing:-.01em}
+.card .a{font-size:16px;border-top:1px dashed var(--line);padding-top:14px;margin-top:auto}
+.card .rowbtn{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.stats{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin:6px 2px}
+.bar{height:8px;border-radius:99px;background:var(--surface2);overflow:hidden;display:flex;margin:6px 0}
+.bar i{display:block;height:100%}
+.sec{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 16px;margin:12px 0}
+.sec h3{margin:0 0 6px;font-size:14px}
+.crow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding:5px 0;border-top:1px solid var(--line)}
+.crow:first-of-type{border-top:0}
+.crow .note{grid-column:1/-1;font-size:12.5px;color:var(--muted);margin-top:-2px}
+input[type=search]{width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit}
+footer{color:var(--muted);font-size:12px;text-align:center;padding:18px}
+</style>
+</head>
+<body>
+<header>
+  <h1>CKA Architecture Explorer</h1>
+  <nav id="tabs"></nav>
+</header>
+<main>
+  <section id="mapView" class="split">
+    <div class="mapCol">
+      <div id="toolbar"></div>
+      <svg id="map" viewBox="0 0 1000 680" role="img" aria-label="Kubernetes architecture map"></svg>
+      <div class="legend">
+        <span><i style="background:var(--c-client);border-color:var(--c-client-s)"></i>client</span>
+        <span><i style="background:var(--c-control);border-color:var(--c-control-s)"></i>control plane</span>
+        <span><i style="background:var(--c-node);border-color:var(--c-node-s)"></i>node agents</span>
+        <span><i style="background:var(--c-addon);border-color:var(--c-addon-s)"></i>add-on</span>
+        <span><i style="background:var(--c-work);border-color:var(--c-work-s)"></i>workload</span>
+        <span>arrow = client → server (who dials whom)</span>
+      </div>
+    </div>
+    <aside id="panel"></aside>
+  </section>
+  <section id="quizView" class="wide" hidden></section>
+  <section id="cmdView" class="wide" hidden></section>
+</main>
+<footer>Progress is saved in this browser only (localStorage). Based on a kubeadm-style cluster with containerd; verify details against the docs for your exam version.</footer>
+
+<script>
+/* =====================================================================
+   DATA
+   ===================================================================== */
+const COMPS = [
+ { id:'kubectl', label:'kubectl', sub:'your client', layer:'client', x:90, y:157,
+   name:'kubectl',
+   role:'The CLI client. Turns your commands into REST calls to the API server. It holds no cluster state itself.',
+   ports:[], runsAs:'Binary on your laptop / bastion',
+   config:['~/.kube/config (or $KUBECONFIG)','/etc/kubernetes/admin.conf (kubeadm, on the control plane node)'],
+   facts:['Kubeconfig = clusters + users + contexts. <code>kubectl config use-context</code> switches cluster (do it first in every exam task).','Talks only to the API server. Never directly to etcd, kubelet or Pods.','Wrong context or namespace is the most common exam slip.'],
+   debug:[['kubectl config get-contexts','Which clusters/contexts exist, which is active'],['kubectl config current-context',''],[`kubectl get --raw='/readyz?verbose'`,'API server health checks, one line each'],['kubectl -v=8 get pods','Shows the raw HTTP calls (great for seeing what kubectl really does)']],
+   tips:['Set up aliases and exports early: <code>alias k=kubectl</code>, <code>export do="--dry-run=client -o yaml"</code>.','<code>kubectl explain pod.spec --recursive</code> is faster than the docs for field names.'],
+   dies:{breaks:[],keeps:'Nothing in the cluster changes. Pods, scheduling, Services all carry on.',symptom:'You just lose your handle on the cluster (wrong or expired kubeconfig, wrong server URL).',fix:'Check <code>KUBECONFIG</code>, the active context, the server address, and cert expiry (<code>kubeadm certs check-expiration</code>).'} },
+
+ { id:'api', label:'kube-apiserver', sub:'front door · :6443', layer:'control', x:350, y:157,
+   name:'kube-apiserver',
+   role:'The front door of the cluster. Every read and write goes through it: authenticate, authorize, admit, validate, then persist to etcd. It is the only component that talks to etcd.',
+   ports:['6443 HTTPS (secure port)'], runsAs:'Static Pod on control plane nodes',
+   config:['/etc/kubernetes/manifests/kube-apiserver.yaml','/etc/kubernetes/pki/ (apiserver.crt, apiserver-etcd-client.crt, apiserver-kubelet-client.crt, ca.crt…)','/etc/kubernetes/admin.conf (admin kubeconfig)'],
+   facts:['Stateless: all state is in etcd, so you can run several behind a load balancer.','Everything else is a client of it: scheduler, controller-manager, kubelet, kube-proxy, CoreDNS, kubectl.','Key flags: <code>--etcd-servers</code>, <code>--service-cluster-ip-range</code>, <code>--authorization-mode=Node,RBAC</code>, <code>--enable-admission-plugins</code>, <code>--client-ca-file</code>, <code>--tls-cert-file</code>.','It dials the kubelet on :10250 for <code>logs</code>, <code>exec</code>, <code>port-forward</code>.','Request pipeline: AuthN → AuthZ (RBAC) → mutating admission → schema validation → validating admission → etcd.'],
+   debug:[[`crictl ps -a | grep kube-apiserver`,'Works even when kubectl is dead'],['crictl logs <container-id>','Read why it crashed'],[`kubectl get --raw='/readyz?verbose'`,''],['ss -ltnp | grep 6443','Is anything listening?'],['journalctl -u kubelet -n 100 --no-pager | grep -i apiserver','kubelet logs show manifest/start problems'],['kubeadm certs check-expiration','Expired certs are a classic cause']],
+   tips:['API server down means kubectl is useless. Switch to <code>crictl</code> and read the manifest.','Break-fix favourites: typo in a flag, wrong cert path, wrong <code>--etcd-servers</code>, wrong <code>--service-cluster-ip-range</code>. Compare against another manifest or the docs.'],
+   dies:{breaks:['kubectl','sched','cm','kubelet','proxy','dns'],keeps:'Running Pods keep running and existing Service rules keep routing, but nothing new is scheduled, scaled, healed or reported.',symptom:'<code>The connection to the server &lt;ip&gt;:6443 was refused</code>. Controllers, scheduler and kubelets all lose their link.',fix:'<code>crictl ps -a</code> → <code>crictl logs</code>. Read <code>/etc/kubernetes/manifests/kube-apiserver.yaml</code> for bad flags/paths. Confirm etcd is up and certs are valid. Editing the manifest makes kubelet restart it.'} },
+
+ { id:'etcd', label:'etcd', sub:'state store · :2379', layer:'control', x:830, y:157,
+   name:'etcd',
+   role:'Consistent key-value store that holds all cluster state (the source of truth). Uses Raft: a majority of members (quorum) must agree before a write is accepted.',
+   ports:['2379 client (API server connects here)','2380 peer (etcd members talk to each other)'], runsAs:'Static Pod (stacked) or an external cluster',
+   config:['/etc/kubernetes/manifests/etcd.yaml','/var/lib/etcd (data dir, a hostPath volume)','/etc/kubernetes/pki/etcd/ (ca.crt, server.crt, server.key, peer.crt…)'],
+   facts:['Only the API server talks to etcd.','Quorum = floor(n/2)+1. 3 members tolerate 1 failure, 5 tolerate 2.','Backup = <code>snapshot save</code>. Restore = new data dir + edit the hostPath in <code>etcd.yaml</code>.','Cert paths for etcdctl come from <code>etcd.yaml</code> (<code>--cert-file</code>, <code>--key-file</code>, <code>--trusted-ca-file</code>).'],
+   debug:[['ETCDCTL_API=3 etcdctl --endpoints=https://127.0.0.1:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key endpoint health','Is etcd healthy?'],['ETCDCTL_API=3 etcdctl --endpoints=https://127.0.0.1:2379 --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key snapshot save /opt/etcd-backup.db','Backup'],['etcdutl snapshot restore /opt/etcd-backup.db --data-dir /var/lib/etcd-restore','Restore (older versions: etcdctl snapshot restore). Then point the hostPath in etcd.yaml to the new dir.'],['crictl logs $(crictl ps -a --name etcd -q | head -1)','Why did it stop?'],['grep -E "data-dir|cert-file|key-file|trusted-ca" /etc/kubernetes/manifests/etcd.yaml','Find paths for etcdctl']],
+   tips:['Exam favourite: snapshot save → snapshot restore to a new <code>--data-dir</code> → update <code>etcd.yaml</code> volume path.','If the API server crash-loops with etcd errors, check <code>--etcd-servers</code> and the etcd client certs first.'],
+   dies:{breaks:['api','kubectl','sched','cm','kubelet','proxy','dns'],keeps:'Containers keep running and existing Service rules keep routing, but the API server cannot read or write state, so no changes are possible.',symptom:'kubectl hangs or errors (<code>etcdserver: request timed out</code>). API server logs show etcd connection failures.',fix:'Check the etcd static Pod logs, <code>etcd.yaml</code> (data-dir, cert paths, ports), disk space, and quorum. If data is lost, restore from a snapshot.'} },
+
+ { id:'sched', label:'kube-scheduler', sub:'picks nodes · :10259', layer:'control', x:590, y:82,
+   name:'kube-scheduler',
+   role:'Assigns unscheduled Pods to nodes: filter (can it run here?) then score (where is best?). Writes a Binding through the API server, setting <code>spec.nodeName</code>.',
+   ports:['10259 HTTPS (secure)'], runsAs:'Static Pod on control plane nodes',
+   config:['/etc/kubernetes/manifests/kube-scheduler.yaml','/etc/kubernetes/scheduler.conf (its kubeconfig)'],
+   facts:['Watches Pods whose <code>spec.nodeName</code> is empty.','Considers resource requests, nodeSelector, node/pod affinity, taints/tolerations, topology spread.','Only decides placement. kubelet is what actually starts the Pod.','Setting <code>nodeName</code> yourself bypasses the scheduler.','Leader election: only one active instance among replicas.'],
+   debug:[['kubectl -n kube-system get pod -l component=kube-scheduler',''],['kubectl describe pod <pending-pod>','Look at Events for FailedScheduling reasons'],['crictl logs <scheduler-container>',''],['kubectl get events -A --sort-by=.lastTimestamp','']],
+   tips:['Pod Pending with <b>no events at all</b>: the scheduler is not running (it is the one that writes FailedScheduling).','Check the manifest for a wrong <code>--kubeconfig</code> path or flag typo.'],
+   dies:{breaks:['pod'],keeps:'Existing Pods, Services, kubectl and all controllers keep working. Static Pods still start (kubelet runs them directly).',symptom:'New Pods stay <code>Pending</code> with no node assigned and no scheduling events.',fix:'<code>kubectl -n kube-system get pods</code> (or <code>crictl ps -a</code> if the API is also affected). Read the logs, then fix the flag/path in <code>kube-scheduler.yaml</code>.'} },
+
+ { id:'cm', label:'controller-manager', sub:'reconcile loops · :10257', layer:'control', x:590, y:232,
+   name:'kube-controller-manager',
+   role:'Runs the built-in control loops that push actual state toward desired state: Deployment, ReplicaSet, Node, Job, EndpointSlice, ServiceAccount, Namespace, PV binding and more.',
+   ports:['10257 HTTPS (secure)'], runsAs:'Static Pod on control plane nodes',
+   config:['/etc/kubernetes/manifests/kube-controller-manager.yaml','/etc/kubernetes/controller-manager.conf (its kubeconfig)','/etc/kubernetes/pki/ca.key (used to sign certs)'],
+   facts:['Pattern for every controller: watch → compare → act, always via the API server.','Node controller marks a node Unknown after <code>--node-monitor-grace-period</code> (default 40s).','Key flags: <code>--cluster-cidr</code>, <code>--service-cluster-ip-range</code>, <code>--cluster-signing-cert-file</code>, <code>--controllers</code>.','Leader election, like the scheduler.'],
+   debug:[['kubectl -n kube-system get pod -l component=kube-controller-manager',''],['crictl logs <controller-manager-container>',''],['kubectl get deploy,rs -A','Do ReplicaSets exist for your Deployments?'],['kubectl get endpointslices -A','']],
+   tips:['Scale a Deployment, replica count changes but no Pods appear: suspect controller-manager.','A bad flag or file path in its manifest means crash loop. Read <code>crictl logs</code>.'],
+   dies:{breaks:['pod','proxy'],keeps:'Existing Pods keep running. kubectl works. The scheduler still places Pods that already exist as Pending.',symptom:'Scaling or creating Deployments produces no new Pods. Dead nodes are never detected. Service endpoints go stale.',fix:'Check its static Pod logs and <code>kube-controller-manager.yaml</code> (kubeconfig path, cert paths, flags).'} },
+
+ { id:'kubelet', label:'kubelet', sub:'node agent · :10250', layer:'node', x:350, y:430,
+   name:'kubelet',
+   role:'The node agent. Registers the node, watches the API for Pods assigned to it, tells the runtime to run them, runs probes, and reports status. Also runs static Pods from a directory.',
+   ports:['10250 HTTPS kubelet API (API server calls it for logs/exec)','10248 local healthz','10255 read-only (disabled by default)'], runsAs:'systemd service, NOT a Pod',
+   config:['/var/lib/kubelet/config.yaml (KubeletConfiguration: staticPodPath, clusterDNS, cgroupDriver)','/etc/kubernetes/kubelet.conf (kubeconfig to the API server)','/etc/systemd/system/kubelet.service.d/10-kubeadm.conf','/etc/kubernetes/manifests (static Pod manifests)'],
+   facts:['A client of the API server (watch Pods, post status) and of the runtime (CRI socket). Also a server on :10250.','Heartbeat: a Lease in the <code>kube-node-lease</code> namespace plus node status updates.','Writes the cluster DNS IP into every Pod\u2019s <code>/etc/resolv.conf</code>.','<code>cgroupDriver</code> must match the runtime (systemd for containerd).','Static Pods: a file in <code>staticPodPath</code> is run directly; the API shows a mirror Pod named <code>&lt;name&gt;-&lt;nodename&gt;</code>.'],
+   debug:[['systemctl status kubelet',''],['journalctl -u kubelet -n 100 --no-pager','The first place to look on a NotReady node'],['systemctl daemon-reload && systemctl restart kubelet','After editing the unit or config'],['grep staticPodPath /var/lib/kubelet/config.yaml',''],['kubectl describe node <node>','Conditions: Ready, MemoryPressure, DiskPressure…']],
+   tips:['NotReady node: ssh in, <code>systemctl status kubelet</code>, then <code>journalctl</code>. Common causes: wrong config path, bad cert, wrong runtime socket, swap enabled.','Edit a unit drop-in? <code>systemctl daemon-reload</code> before restart.'],
+   dies:{breaks:['pod'],keeps:'Containers already running keep running (the runtime holds them) and kube-proxy rules stay. But there are no status updates, no new Pods, no restarts, and no logs/exec for that node.',symptom:'Node turns <code>NotReady</code> after ~40s. Pods get evicted after ~5 min. <code>kubectl logs/exec</code> to Pods there fail.',fix:'<code>systemctl status kubelet</code>, <code>journalctl -u kubelet</code>, then fix <code>/var/lib/kubelet/config.yaml</code>, <code>kubelet.conf</code>, or the runtime socket path. On a control plane node, static Pods will not (re)start while it is down.'} },
+
+ { id:'proxy', label:'kube-proxy', sub:'Service rules · :10256', layer:'node', x:590, y:430,
+   name:'kube-proxy',
+   role:'Implements Service virtual IPs on each node by programming iptables (default) or IPVS rules that DNAT ClusterIP / NodePort traffic to backend Pod IPs.',
+   ports:['10256 healthz','10249 metrics (localhost)'], runsAs:'DaemonSet in kube-system',
+   config:['ConfigMap <code>kube-proxy</code> in kube-system (mode, clusterCIDR)','<code>kubectl -n kube-system get cm kube-proxy -o yaml</code>'],
+   facts:['Watches Services and EndpointSlices from the API server.','Not in the data path: kernel rules do the forwarding.','It does not do Pod-to-Pod networking (CNI) or DNS (CoreDNS).','Changing the mode means editing the ConfigMap and restarting the DaemonSet Pods.'],
+   debug:[['kubectl -n kube-system get ds kube-proxy -o wide',''],['kubectl -n kube-system logs ds/kube-proxy',''],['iptables-save | grep <service-name>','See the DNAT chains for a Service'],['kubectl get endpointslices -l kubernetes.io/service-name=<svc>','Are there backends?']],
+   tips:['A ClusterIP works from one node but not another: look at kube-proxy on the bad node.','Service has no backends? That is usually labels/selector, not kube-proxy.'],
+   dies:{breaks:['pod'],keeps:'Existing rules keep routing traffic. Pod-to-Pod by IP is unaffected (that is CNI).',symptom:'New or changed Services do not work on that node; deleted Pods still receive traffic (stale rules).',fix:'Check the DaemonSet Pod on that node, its logs, and the <code>kube-proxy</code> ConfigMap.'} },
+
+ { id:'dns', label:'CoreDNS', sub:'cluster DNS · :53', layer:'addon', x:830, y:430,
+   name:'CoreDNS',
+   role:'Cluster DNS. Answers <code>&lt;svc&gt;.&lt;ns&gt;.svc.cluster.local</code> with the Service ClusterIP (and Pod/headless records), and forwards everything else upstream.',
+   ports:['53 UDP + TCP','9153 Prometheus metrics'], runsAs:'Deployment (2 replicas) in kube-system, fronted by the kube-dns Service',
+   config:['ConfigMap <code>coredns</code> in kube-system (the Corefile)','kube-dns Service ClusterIP (kubeadm default 10.96.0.10) = kubelet <code>clusterDNS</code>'],
+   facts:['Watches Services and EndpointSlices via the API server.','kubelet writes nameserver + search domains into each Pod\u2019s resolv.conf: <code>&lt;ns&gt;.svc.cluster.local svc.cluster.local cluster.local</code>.','A short name works inside the same namespace; use <code>svc.ns</code> across namespaces.','Pods reach CoreDNS through the kube-dns Service, which kube-proxy routes.'],
+   debug:[['kubectl -n kube-system get pods -l k8s-app=kube-dns',''],['kubectl -n kube-system logs -l k8s-app=kube-dns',''],['kubectl run dns --rm -it --image=busybox:1.28 --restart=Never -- nslookup kubernetes','Use busybox 1.28; newer builds have nslookup quirks'],['kubectl exec <pod> -- cat /etc/resolv.conf',''],['kubectl -n kube-system get cm coredns -o yaml','The Corefile']],
+   tips:['CoreDNS Pods Pending or ContainerCreating on a fresh cluster usually means no CNI yet.','Name fails but IP works: DNS. Both fail: network, kube-proxy or Endpoints.'],
+   dies:{breaks:['pod'],keeps:'IP-to-IP traffic and ClusterIPs keep working. Only name lookups fail.',symptom:'<code>nslookup</code>/<code>curl</code> by name fails: <code>bad address</code>, <code>Temporary failure in name resolution</code>.',fix:'Check the CoreDNS Pods, the kube-dns Service and its Endpoints, the Corefile ConfigMap, and the CNI.'} },
+
+ { id:'rt', label:'containerd', sub:'CRI runtime · socket', layer:'node', x:350, y:540,
+   name:'containerd (container runtime)',
+   role:'Pulls images and creates/starts the Pod sandbox and containers (using runc). kubelet talks to it over the CRI gRPC socket.',
+   ports:[], runsAs:'systemd service',
+   config:['/etc/containerd/config.toml (<code>SystemdCgroup = true</code>)','/run/containerd/containerd.sock (CRI socket)','/etc/crictl.yaml (runtime-endpoint for crictl)'],
+   facts:['Docker Engine is not used directly since 1.24 (dockershim removed); containerd or CRI-O instead.','<code>crictl</code> speaks CRI and works even when the API server is dead.','<code>ctr</code> / <code>nerdctl</code> are lower-level containerd tools. Kubernetes uses the containerd namespace <code>k8s.io</code>.','Calls the CNI plugin when it creates a Pod sandbox.'],
+   debug:[['crictl ps -a','All containers on this node, including exited ones'],['crictl pods',''],['crictl logs <container-id>',''],['crictl images',''],['crictl inspect <container-id>',''],['systemctl status containerd && journalctl -u containerd -n 100 --no-pager','']],
+   tips:['<code>crictl</code> is your main tool when kubectl does not work.','A cgroup driver mismatch between kubelet and containerd causes crash loops.'],
+   dies:{breaks:['kubelet','pod'],keeps:'Already-running containers often survive (shim processes), but nothing can be started, stopped or inspected.',symptom:'Node <code>NotReady</code> (container runtime not ready). New Pods stuck. <code>crictl</code> cannot connect.',fix:'<code>systemctl status containerd</code>, check <code>config.toml</code>, the socket path in <code>/var/lib/kubelet/kubeadm-flags.env</code> / <code>/etc/crictl.yaml</code>. On a control plane node, static Pods cannot restart while it is down.'} },
+
+ { id:'cni', label:'CNI plugin', sub:'pod networking', layer:'addon', x:590, y:540,
+   name:'CNI plugin (Calico / Flannel / Cilium…)',
+   role:'Gives every Pod an IP and connects Pods across nodes. The runtime calls the plugin binary when a Pod sandbox is created or deleted.',
+   ports:['Plugin-specific, e.g. Flannel VXLAN 8472/udp, Calico BGP 179/tcp, VXLAN 4789/udp'], runsAs:'Binaries on each node + usually a DaemonSet agent',
+   config:['/etc/cni/net.d/ (config files; first by name is used)','/opt/cni/bin/ (plugin binaries)','Pod CIDR: <code>kubeadm init --pod-network-cidr</code>, <code>node.spec.podCIDR</code>'],
+   facts:['Network model: every Pod can reach every Pod without NAT, and nodes can reach Pods.','Pod CIDR is different from Service CIDR (Service IPs are virtual, kube-proxy handles them).','No CNI installed: node NotReady, CoreDNS stuck.','NetworkPolicy only works if the CNI enforces it (Calico, Cilium yes; plain Flannel no).'],
+   debug:[['ls /etc/cni/net.d /opt/cni/bin',''],[`kubectl -n kube-system get pods -o wide | grep -E "calico|flannel|cilium|weave"`,''],['kubectl describe pod <stuck-pod>','Look for "failed to setup network for sandbox"'],['ip addr; ip route',''],['kubectl get nodes -o custom-columns=NAME:.metadata.name,CIDR:.spec.podCIDR','']],
+   tips:['Installing a CNI is a classic bootstrap task. Match <code>--pod-network-cidr</code> to the CNI manifest\u2019s CIDR.','Pod stuck <code>ContainerCreating</code> with a network error: CNI.'],
+   dies:{breaks:['pod','dns'],keeps:'Running Pods usually keep their existing network. Control plane static Pods use hostNetwork and are unaffected.',symptom:'New Pods stuck <code>ContainerCreating</code> (<code>failed to setup network for sandbox</code>). Node can show <code>NotReady</code> with <code>cni plugin not initialized</code>. Cross-node traffic may break depending on the plugin.',fix:'Check the CNI DaemonSet Pods, <code>/etc/cni/net.d</code>, <code>/opt/cni/bin</code>, and the Pod CIDR settings.'} },
+
+ { id:'pod', label:'Pod', sub:'your workload', layer:'work', x:830, y:540,
+   name:'Pod',
+   role:'Your workload: one or more containers sharing a network namespace and IP, placed on a node.',
+   ports:[], runsAs:'Containers started by the runtime',
+   config:['Pod spec (YAML)','/var/log/pods and /var/log/containers (logs on the node)'],
+   facts:['Pending = not scheduled (or waiting on image/volume). ContainerCreating = on a node, kubelet/runtime/CNI are working.','Bare Pods are not recreated. Controllers (ReplicaSet etc.) recreate them.','Static Pods are the exception: run by kubelet from a file.','CrashLoopBackOff = app keeps dying. ImagePullBackOff = image or registry problem.'],
+   debug:[['kubectl describe pod <pod>',''],['kubectl logs <pod> [-c container] [--previous]',''],['kubectl get pod <pod> -o wide','Which node, which IP'],['kubectl get events --field-selector involvedObject.name=<pod>','']],
+   tips:['Read the Events at the bottom of <code>describe</code> first. They name the failing component.'],
+   dies:{breaks:[],keeps:'Its ReplicaSet creates a replacement. The Service stops sending traffic to it once it is removed from endpoints.',symptom:'Requests to that Pod fail until the endpoints update.',fix:'<code>kubectl describe pod</code>, <code>kubectl logs --previous</code>.'} }
+];
+
+/* Edges: a = client (dialer), b = server. bi = traffic matters both ways. */
+const EDGES = [
+ { id:'e1', a:'kubectl', b:'api', label:'HTTPS :6443', note:'REST calls over TLS. Identity comes from the kubeconfig: client certificate, token, or an exec plugin.' },
+ { id:'e2', a:'api', b:'etcd', label:'gRPC :2379', note:'The API server is etcd\u2019s only client. It uses <code>apiserver-etcd-client.crt</code> against etcd\u2019s CA.' },
+ { id:'e3', a:'sched', b:'api', label:'watch Pods · bind', note:'The scheduler uses <code>scheduler.conf</code>. It lists/watches Pods and Nodes, and creates Bindings that set <code>spec.nodeName</code>.' },
+ { id:'e4', a:'cm', b:'api', label:'watch · reconcile', note:'Each controller watches its resource type and creates/updates/deletes objects through the API server. It never touches etcd directly.' },
+ { id:'e5', a:'kubelet', b:'api', bi:true, lt:.55, label:'kubelet ⇄ API (:10250)', note:'kubelet → API server: watches Pods for its node, posts status, renews its Lease. API server → kubelet on <b>:10250</b>: logs, exec, port-forward. If <code>kubectl get</code> works but <code>kubectl logs/exec</code> fail, suspect this path.' },
+ { id:'e6', a:'proxy', b:'api', lt:.35, label:'watch Services', note:'kube-proxy watches Services and EndpointSlices, then programs iptables/IPVS on its node.' },
+ { id:'e7', a:'kubelet', b:'rt', label:'CRI (unix socket)', note:'gRPC over <code>/run/containerd/containerd.sock</code>: RunPodSandbox, CreateContainer, StartContainer, logs, exec…' },
+ { id:'e8', a:'rt', b:'cni', label:'CNI ADD/DEL', note:'When the runtime sets up or tears down a Pod sandbox it runs the plugin binary from <code>/opt/cni/bin</code> using config from <code>/etc/cni/net.d</code>.' },
+ { id:'e9', a:'cni', b:'pod', label:'veth + IP', note:'The plugin creates the veth pair, puts one end in the Pod\u2019s network namespace, assigns an IP from the node\u2019s Pod CIDR and sets routes.' },
+ { id:'e10', a:'proxy', b:'pod', label:'iptables DNAT', note:'Not a connection kube-proxy makes. Its rules rewrite the destination of Service traffic to a backend Pod IP.' },
+ { id:'e11', a:'dns', b:'api', lt:.3, label:'watch Services', note:'CoreDNS watches Services/EndpointSlices to answer cluster DNS names.' },
+ { id:'e12', a:'pod', b:'dns', label:'DNS :53', note:'Pods query the kube-dns Service IP (written into <code>/etc/resolv.conf</code> by kubelet); kube-proxy routes it to a CoreDNS Pod.' },
+ { id:'e13', a:'rt', b:'pod', c:[590,640], label:'starts containers', note:'The runtime creates the sandbox (pause container) and the app containers, which together make up the Pod.' }
+];
+
+/* Request tracer scenarios */
+const SCN = [
+ { title:'kubectl apply a Deployment', cmd:'kubectl apply -f nginx-deploy.yaml   # replicas: 3',
+   tip:'Stuck Pending with no node → scheduler. Pending with a node but never starts → kubelet, runtime or CNI. Deployment exists but no Pods → controller-manager.',
+   steps:[
+    {a:'kubectl',b:'api',e:'e1',t:'kubectl sends the request',d:'kubectl reads <code>~/.kube/config</code> (server URL, CA, credentials) and sends the manifest as a REST call over TLS to <b>:6443</b>.'},
+    {a:'api',t:'API server checks it',d:'AuthN (who are you?) → AuthZ (RBAC: may you?) → mutating admission → schema validation → validating admission. Fail at any stage and nothing is stored.'},
+    {a:'api',b:'etcd',e:'e2',t:'Desired state is saved',d:'The Deployment object is persisted in etcd. Only the API server talks to etcd.'},
+    {a:'cm',b:'api',e:'e4',t:'Deployment controller makes a ReplicaSet',d:'controller-manager watches for Deployments, sees one with no ReplicaSet, and creates it through the API server.'},
+    {a:'cm',b:'api',e:'e4',t:'ReplicaSet controller makes Pods',d:'It sees 0 of 3 replicas and creates 3 Pod objects. They exist in etcd but have no <code>spec.nodeName</code>, so they show as <b>Pending</b>.'},
+    {a:'sched',b:'api',e:'e3',t:'Scheduler picks nodes',d:'It watches for Pods with no node, filters nodes (resources, taints, nodeSelector, affinity), scores the rest, and writes a Binding that sets <code>spec.nodeName</code>.'},
+    {a:'kubelet',b:'api',e:'e5',t:'kubelet sees its new Pod',d:'Each kubelet watches for Pods assigned to its own node. It notices the new one and starts making it real.'},
+    {a:'kubelet',b:'rt',e:'e7',t:'kubelet calls the runtime',d:'Over the CRI socket: create the Pod sandbox, pull the image, create and start each container.'},
+    {a:'rt',b:'cni',e:'e8',t:'CNI wires up the network',d:'While creating the sandbox the runtime calls the CNI plugin to create the veth pair and assign a Pod IP. No working CNI means the Pod stays <b>ContainerCreating</b>.'},
+    {a:'rt',b:'pod',e:'e13',t:'Containers start',d:'The app containers start inside the sandbox and join its network namespace.'},
+    {a:'kubelet',b:'api',e:'e5',t:'Status flows back up',d:'kubelet reports phase Running, the Pod IP and container statuses to the API server, which stores them in etcd. Now <code>kubectl get pods</code> shows Running.'}
+   ]},
+ { title:'Service + DNS: reach a Pod by name', cmd:'kubectl expose deploy web --port 80   # then curl web from another Pod',
+   tip:'DNS fails → CoreDNS Pods, kube-dns Service, CNI. DNS works but connection fails → empty endpoints (selector/label mismatch) or kube-proxy. Check <code>kubectl get endpointslices</code>.',
+   steps:[
+    {a:'kubectl',b:'api',e:'e1',t:'Service is created',d:'The Service is stored and the API server allocates a ClusterIP from <code>--service-cluster-ip-range</code> (kubeadm default 10.96.0.0/12).'},
+    {a:'cm',b:'api',e:'e4',t:'EndpointSlices are filled',d:'The EndpointSlice controller finds Ready Pods that match the selector and writes their IPs into EndpointSlices.'},
+    {a:'proxy',b:'api',e:'e6',t:'kube-proxy learns about it',d:'kube-proxy on every node watches Services and EndpointSlices.'},
+    {a:'proxy',t:'Rules are programmed on the node',d:'It writes iptables (default) or IPVS rules: traffic to ClusterIP:port is DNAT\u2019d to one backend Pod IP. The ClusterIP is <b>virtual</b>: no interface owns it, so <code>ping</code> fails but the port works.'},
+    {a:'dns',b:'api',e:'e11',t:'CoreDNS learns about it',d:'CoreDNS watches Services too, so <code>web.default.svc.cluster.local</code> resolves to the ClusterIP.'},
+    {a:'pod',b:'dns',e:'e12',t:'A client Pod looks up the name',d:'Its <code>/etc/resolv.conf</code> (written by kubelet) points at the kube-dns Service IP (e.g. 10.96.0.10) with the cluster search domains, so plain <code>web</code> works in the same namespace.'},
+    {a:'proxy',b:'pod',e:'e10',t:'Traffic hits the Service rules',d:'The client connects to the ClusterIP. The node\u2019s iptables rules (from kube-proxy) rewrite the destination to a backend Pod IP.'},
+    {a:'cni',b:'pod',e:'e9',t:'CNI carries it to the backend',d:'The packet crosses the Pod network (veth, routes, overlay or BGP) to the backend Pod. Pod-to-Pod needs no NAT.'}
+   ]},
+ { title:'kubectl logs / exec', cmd:'kubectl logs web-7d9f8 -f',
+   tip:'<code>get pods</code> works but <code>logs</code>/<code>exec</code> fail with <code>dial tcp &lt;node&gt;:10250</code>: the kubelet (or a firewall on 10250) is the problem, not the API server.',
+   steps:[
+    {a:'kubectl',b:'api',e:'e1',t:'Request reaches the API server',d:'kubectl asks for the <code>pods/log</code> subresource. RBAC is checked for that subresource.'},
+    {a:'api',t:'API server finds the node',d:'It reads the Pod\u2019s <code>spec.nodeName</code> to know which kubelet to call.'},
+    {a:'api',b:'kubelet',e:'e5',t:'API server calls the kubelet',d:'Here the API server is the <b>client</b>: it connects to <code>https://&lt;node&gt;:10250</code> (using <code>apiserver-kubelet-client.crt</code>) and proxies the request.'},
+    {a:'kubelet',b:'rt',e:'e7',t:'kubelet gets the data',d:'It serves logs from <code>/var/log/pods</code>; for exec/attach it opens a streaming session through the runtime (CRI).'},
+    {a:'kubelet',b:'api',e:'e5',t:'Output streams back',d:'kubelet → API server → kubectl. The API server only relays; it stores nothing.'}
+   ]},
+ { title:'Node goes NotReady (kubelet dies)', cmd:'systemctl stop kubelet   # on worker-1',
+   tip:'On the broken node: <code>systemctl status kubelet</code> → <code>journalctl -u kubelet -n 100</code> → check <code>/var/lib/kubelet/config.yaml</code>, <code>/etc/kubernetes/kubelet.conf</code>, and that the runtime socket is alive.',
+   steps:[
+    {a:'kubelet',t:'Heartbeats stop',d:'kubelet no longer renews its Lease in <code>kube-node-lease</code> (every ~10s) or posts node status. Containers already running keep running.'},
+    {a:'cm',b:'api',e:'e4',t:'Node controller reacts',d:'After <code>--node-monitor-grace-period</code> (default 40s) it marks the node <code>Ready=Unknown</code> and adds taints <code>node.kubernetes.io/unreachable</code> (NoSchedule and NoExecute).'},
+    {a:'sched',b:'api',e:'e3',t:'No new Pods land there',d:'The NoSchedule taint makes the scheduler skip that node for new Pods.'},
+    {a:'cm',b:'api',e:'e4',t:'Eviction timer runs',d:'Pods get a default 300s toleration for that taint (added by admission). When it expires they are evicted. DaemonSet Pods tolerate it; StatefulSets need extra care.'},
+    {a:'sched',b:'api',e:'e3',t:'Replacements get scheduled',d:'The ReplicaSet controller creates replacement Pods and the scheduler places them on healthy nodes.'}
+   ]},
+ { title:'Control plane boots (static Pods)', cmd:'systemctl start kubelet   # on a kubeadm control plane node',
+   tip:'API server down means kubectl is dead. Use <code>crictl ps -a</code>, <code>crictl logs &lt;id&gt;</code>, <code>journalctl -u kubelet</code>, and read the manifest in <code>/etc/kubernetes/manifests</code>. Saving a manifest makes kubelet restart that Pod automatically.',
+   steps:[
+    {a:'kubelet',t:'kubelet starts as a systemd service',d:'It reads <code>/var/lib/kubelet/config.yaml</code>, which sets <code>staticPodPath: /etc/kubernetes/manifests</code>.'},
+    {a:'kubelet',b:'rt',e:'e7',t:'It runs the manifests directly',d:'It finds <code>etcd.yaml</code>, <code>kube-apiserver.yaml</code>, <code>kube-scheduler.yaml</code> and <code>kube-controller-manager.yaml</code> and starts them via the runtime. No API server is needed for this.'},
+    {a:'api',b:'etcd',e:'e2',t:'API server connects to etcd',d:'These Pods use <code>hostNetwork: true</code>, so they work before any CNI exists. The API server dials etcd on 2379.'},
+    {a:'kubelet',b:'api',e:'e5',t:'kubelet registers and mirrors',d:'Once the API is up, kubelet registers the node and creates read-only <b>mirror Pods</b>, which is why they appear in <code>kubectl -n kube-system get pods</code>. You cannot delete them with kubectl; edit or move the file instead.'},
+    {a:'sched',b:'api',e:'e3',t:'Scheduler and controllers connect',d:'They use <code>scheduler.conf</code> and <code>controller-manager.conf</code> to talk to the API server and begin their loops.'}
+   ]}
+];
+
+/* Quiz cards: [tag, question, answer, componentId?] */
+const RAW = [
+ ['Ports','kube-apiserver secure port?','<b>6443</b> (HTTPS)','api'],
+ ['Ports','etcd client port and peer port?','<b>2379</b> client (API server connects here) · <b>2380</b> peer (members talk to each other)','etcd'],
+ ['Ports','kubelet API port? Who calls it?','<b>10250</b> (HTTPS). The API server calls it for logs, exec, port-forward. Local healthz is 10248.','kubelet'],
+ ['Ports','Secure ports of kube-scheduler and kube-controller-manager?','Scheduler <b>10259</b> · controller-manager <b>10257</b>','sched'],
+ ['Ports','kube-proxy health and metrics ports?','<b>10256</b> healthz · <b>10249</b> metrics','proxy'],
+ ['Ports','Which ports does CoreDNS use?','<b>53</b> UDP+TCP for DNS · <b>9153</b> metrics','dns'],
+ ['Ports','Default NodePort range?','<b>30000–32767</b>','proxy'],
+ ['Files','Where are static Pod manifests, and who reads them?','<code>/etc/kubernetes/manifests</code>, read by <b>kubelet</b> (<code>staticPodPath</code> in <code>/var/lib/kubelet/config.yaml</code>)','kubelet'],
+ ['Files','Where are the kubelet config file and its kubeconfig?','<code>/var/lib/kubelet/config.yaml</code> (KubeletConfiguration) · <code>/etc/kubernetes/kubelet.conf</code> (kubeconfig)','kubelet'],
+ ['Files','Where do kubeadm cluster certificates live? And etcd\u2019s?','<code>/etc/kubernetes/pki</code> · etcd\u2019s in <code>/etc/kubernetes/pki/etcd</code>','api'],
+ ['Files','Name the kubeconfig files kubeadm creates in /etc/kubernetes.','<code>admin.conf</code>, <code>kubelet.conf</code>, <code>controller-manager.conf</code>, <code>scheduler.conf</code>','api'],
+ ['Files','Where is etcd\u2019s data directory?','<code>/var/lib/etcd</code> (hostPath volume in <code>etcd.yaml</code>)','etcd'],
+ ['Files','Where are CNI config and CNI plugin binaries?','Config: <code>/etc/cni/net.d</code> · Binaries: <code>/opt/cni/bin</code>','cni'],
+ ['Files','containerd config file and CRI socket?','<code>/etc/containerd/config.toml</code> (set <code>SystemdCgroup = true</code>) · <code>/run/containerd/containerd.sock</code>','rt'],
+ ['Files','Where do kube-proxy and CoreDNS keep their config?','ConfigMaps in kube-system: <code>kube-proxy</code> (mode, clusterCIDR) and <code>coredns</code> (the Corefile)','proxy'],
+ ['Flow','Who is the only component that talks to etcd?','The <b>kube-apiserver</b>','etcd'],
+ ['Flow','Who creates Pods from a ReplicaSet?','The <b>controller-manager</b> (ReplicaSet controller), through the API server','cm'],
+ ['Flow','Who decides which node a Pod runs on, and how is it recorded?','The <b>scheduler</b>. It writes a Binding that sets <code>spec.nodeName</code>.','sched'],
+ ['Flow','Who actually starts the containers?','<b>kubelet</b> instructs the runtime over CRI; <b>containerd + runc</b> start them.','kubelet'],
+ ['Flow','Who programs Service routing on each node?','<b>kube-proxy</b> (iptables or IPVS rules that DNAT the ClusterIP to Pod IPs)','proxy'],
+ ['Flow','Who gives a Pod its IP?','The <b>CNI plugin</b>, called by the runtime when the Pod sandbox is created','cni'],
+ ['Flow','Who answers cluster DNS names, and how does a Pod know where to ask?','<b>CoreDNS</b>. kubelet writes the kube-dns Service IP into the Pod\u2019s <code>/etc/resolv.conf</code>.','dns'],
+ ['Flow','What is a static Pod?','A Pod run directly by <b>kubelet</b> from a file in <code>staticPodPath</code>. The API shows a read-only mirror Pod named <code>&lt;name&gt;-&lt;node&gt;</code>.','kubelet'],
+ ['Flow','Where do node heartbeats go?','<b>Lease</b> objects in the <code>kube-node-lease</code> namespace (plus node status updates)','kubelet'],
+ ['Flow','Order of the API server request pipeline?','AuthN → AuthZ (RBAC) → mutating admission → schema validation → validating admission → etcd','api'],
+ ['Flow','Which components watch the API server, and do they talk to each other directly?','Scheduler, controller-manager, kubelet, kube-proxy, CoreDNS. They coordinate <b>only through the API server</b>, not directly.','api'],
+ ['Flow','What is a ClusterIP, really?','A <b>virtual</b> IP. kube-proxy rules DNAT it to Pod IPs. No interface owns it, so ping fails but the Service port works.','proxy'],
+ ['Flow','Pod CIDR vs Service CIDR?','Pod CIDR: real IPs from the CNI (<code>--pod-network-cidr</code>). Service CIDR: virtual IPs (<code>--service-cluster-ip-range</code>, kubeadm default 10.96.0.0/12).','cni'],
+ ['Flow','Default node-monitor-grace-period and default Pod eviction toleration?','<b>40s</b> to mark a node Unknown · <b>300s</b> default toleration for the unreachable/not-ready taints before eviction','cm'],
+ ['Troubleshoot','Pod Pending, no node assigned, no events at all. Suspect?','The <b>scheduler</b> is not running (it writes FailedScheduling events)','sched'],
+ ['Troubleshoot','Deployment exists but no ReplicaSet or Pods appear. Suspect?','The <b>controller-manager</b>','cm'],
+ ['Troubleshoot','kubectl: <code>connection refused</code> on :6443. First steps?','API server is down. Use <code>crictl ps -a</code> and <code>crictl logs</code>, read <code>kube-apiserver.yaml</code> for bad flags/paths, check etcd and cert expiry.','api'],
+ ['Troubleshoot','API server crash-loops with etcd errors. Where do you look?','<code>--etcd-servers</code> and the etcd client cert paths in <code>kube-apiserver.yaml</code>; then etcd\u2019s own logs and <code>etcd.yaml</code>.','etcd'],
+ ['Troubleshoot','Pod stuck <code>ContainerCreating</code> with "failed to setup network for sandbox". Suspect?','The <b>CNI</b> (missing/broken plugin, config in /etc/cni/net.d, CNI DaemonSet)','cni'],
+ ['Troubleshoot','Node is NotReady. Where do you start?','On the node: <code>systemctl status kubelet</code>, <code>journalctl -u kubelet</code>; then runtime, CNI, disk/memory pressure (<code>kubectl describe node</code>).','kubelet'],
+ ['Troubleshoot','<code>kubectl get</code> works but <code>kubectl logs/exec</code> fails. Suspect?','The path <b>API server → kubelet :10250</b> (kubelet down or firewall)','kubelet'],
+ ['Troubleshoot','DNS lookups fail inside Pods. Checklist?','CoreDNS Pods running? kube-dns Service + Endpoints exist? Corefile OK? Pod resolv.conf correct? CNI/kube-proxy healthy?','dns'],
+ ['Troubleshoot','Service works by IP but has no backends. Suspect?','Selector/label mismatch or Pods not Ready. Check <code>kubectl get endpointslices</code> and <code>describe svc</code>.','proxy'],
+ ['Troubleshoot','Control plane certs expired. Fix?','<code>kubeadm certs check-expiration</code> → <code>kubeadm certs renew all</code> → restart the static Pods (move manifests out and back).','api'],
+ ['Troubleshoot','You edited a static Pod manifest but nothing changed. Why?','Probably invalid YAML or a bad flag. kubelet reloads the file automatically; check <code>journalctl -u kubelet</code> and <code>crictl ps -a</code>.','kubelet'],
+ ['Ops','etcd backup command shape?','<code>ETCDCTL_API=3 etcdctl snapshot save &lt;file&gt; --endpoints=https://127.0.0.1:2379 --cacert --cert --key</code> (paths from etcd.yaml)','etcd'],
+ ['Ops','etcd restore steps?','<code>etcdutl snapshot restore &lt;file&gt; --data-dir /var/lib/etcd-restore</code>, then change the etcd-data hostPath in <code>etcd.yaml</code> to the new dir.','etcd'],
+ ['Ops','Safe node maintenance sequence?','<code>kubectl drain &lt;node&gt; --ignore-daemonsets --delete-emptydir-data</code> → do the work → <code>kubectl uncordon &lt;node&gt;</code>','kubelet'],
+ ['Ops','kubeadm upgrade order on the first control plane node?','Upgrade the <code>kubeadm</code> package → <code>kubeadm upgrade plan</code> → <code>kubeadm upgrade apply vX.Y.Z</code> → drain → upgrade kubelet + kubectl → restart kubelet → uncordon. Other nodes: <code>kubeadm upgrade node</code>.','api'],
+ ['Ops','How do you get a fresh worker join command?','<code>kubeadm token create --print-join-command</code>','api']
+];
+const CARDS = RAW.map(([tag,q,a,comp])=>({id:tag+':'+q,tag,q,a,comp}));
+
+/* =====================================================================
+   HELPERS + STATE
+   ===================================================================== */
+const $=(s,r=document)=>r.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const byId=Object.fromEntries(COMPS.map(c=>[c.id,c]));
+const KEY='cka-explorer-v1';
+let S={cards:{}};
+try{S=Object.assign({cards:{}},JSON.parse(localStorage.getItem(KEY)||'{}'));}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+
+/* auto-generated "what does X do" cards, now that COMPS/EDGES exist */
+COMPS.forEach(c=>{
+  const peers=[...new Set(EDGES.filter(e=>e.a===c.id||e.b===c.id).map(e=>byId[e.a===c.id?e.b:e.a].label))];
+  const plain=c.role.replace(/<[^>]+>/g,'').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+  CARDS.push({id:'Components:'+c.id,tag:'Components',comp:c.id,
+    q:'What does <b>'+c.name+'</b> do, and who does it connect to?',
+    a:esc(plain).replace(/&lt;/g,'&lt;')+'<br><span class="m">Connected to: '+peers.join(', ')+(c.ports.length?' · Ports: '+c.ports.join('; '):'')+'</span>'});
+});
+
+let mode=S.mode||'explore', sel='api', selEdge=null, scn=0, step=0, timer=null;
+let killRevealed=false;
+
+const HW=82, HH=27, NS='http://www.w3.org/2000/svg';
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
+function clip(c,to,gap=4){const dx=to.x-c.x,dy=to.y-c.y;const tx=dx?(HW+gap)/Math.abs(dx):Infinity;const ty=dy?(HH+gap)/Math.abs(dy):Infinity;const t=Math.min(tx,ty);return{x:c.x+dx*t,y:c.y+dy*t};}
+
+/* =====================================================================
+   MAP
+   ===================================================================== */
+const nodes=new Map(), edges=new Map();
+function drawMap(){
+  const svg=$('#map'); svg.innerHTML='';
+  const defs=el('defs',{},svg);
+  [['ar','--edge'],['arA','--accent'],['arB','--bad']].forEach(([id,v])=>{
+    const m=el('marker',{id,viewBox:'0 0 10 10',refX:9,refY:5,markerWidth:9,markerHeight:9,orient:'auto-start-reverse',markerUnits:'userSpaceOnUse'},defs);
+    el('path',{d:'M0 0L10 5L0 10z',style:'fill:var('+v+')'},m);
+  });
+  const reg=el('g',{class:'region'},svg);
+  el('rect',{x:190,y:16,width:790,height:282,rx:14},reg);
+  el('text',{x:206,y:38},reg).textContent='CONTROL PLANE NODE';
+  el('rect',{x:190,y:340,width:790,height:322,rx:14},reg);
+  el('text',{x:206,y:362},reg).textContent='EVERY NODE (workers, and control plane nodes too)';
+  el('text',{x:90,y:118,'text-anchor':'middle'},reg).textContent='OUTSIDE';
+  const el1=el('g',{},svg), nl=el('g',{},svg);
+  EDGES.forEach(e=>{
+    const A=byId[e.a],B=byId[e.b]; let d,lx,ly;
+    if(e.c){const s=clip(A,{x:e.c[0],y:e.c[1]}),t=clip(B,{x:e.c[0],y:e.c[1]});d='M'+s.x+' '+s.y+'Q'+e.c[0]+' '+e.c[1]+' '+t.x+' '+t.y;lx=.25*s.x+.5*e.c[0]+.25*t.x;ly=.25*s.y+.5*e.c[1]+.25*t.y;}
+    else{const s=clip(A,B),t=clip(B,A),u=e.lt??.5;d='M'+s.x+' '+s.y+'L'+t.x+' '+t.y;lx=s.x+(t.x-s.x)*u;ly=s.y+(t.y-s.y)*u;}
+    const g=el('g',{class:'edge'},el1);
+    const line=el('path',{d,class:'line','marker-end':'url(#ar)'},g);
+    if(e.bi)line.setAttribute('marker-start','url(#ar)');
+    const hit=el('path',{d,class:'hit'},g);
+    el('text',{x:lx,y:ly-6,'text-anchor':'middle'},g).textContent=e.label;
+    hit.addEventListener('click',()=>onEdge(e.id));
+    edges.set(e.id,{g,line,e});
+  });
+  COMPS.forEach(c=>{
+    const g=el('g',{class:'node '+c.layer,tabindex:0,role:'button','aria-label':c.name},nl);
+    el('rect',{x:c.x-HW,y:c.y-HH,width:HW*2,height:HH*2,rx:10},g);
+    el('text',{x:c.x,y:c.y-3,'text-anchor':'middle',class:'t1'},g).textContent=c.label;
+    el('text',{x:c.x,y:c.y+13,'text-anchor':'middle',class:'t2'},g).textContent=c.sub;
+    el('text',{x:c.x+HW-16,y:c.y-HH+19,class:'xmark'},g).textContent='✕';
+    g.addEventListener('click',()=>onNode(c.id));
+    g.addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();onNode(c.id);}});
+    nodes.set(c.id,g);
+  });
+}
+
+function curStep(){return SCN[scn].steps[step];}
+function refreshMap(){
+  const hl=new Set(), on=new Set(); let dead=null; const hit=new Set();
+  if(mode==='trace'){const st=curStep();[st.a,st.b].forEach(x=>x&&hl.add(x));if(st.e)on.add(st.e);}
+  if(mode==='kill'&&S.killed){dead=S.killed;if(killRevealed)byId[dead].dies.breaks.forEach(x=>hit.add(x));}
+  nodes.forEach((g,id)=>{
+    let cl='node '+byId[id].layer;
+    if(mode==='explore'&&!selEdge&&sel===id)cl+=' sel';
+    if(hl.has(id))cl+=' hl';
+    if(dead===id)cl+=' dead';
+    if(hit.has(id))cl+=' hit';
+    if(dead&&killRevealed&&dead!==id&&!hit.has(id))cl+=' dim';
+    g.setAttribute('class',cl);
+  });
+  edges.forEach(({g,line,e},id)=>{
+    let cl='edge';
+    const isOn=on.has(id); if(isOn)cl+=' on';
+    if(mode==='explore'&&selEdge===id)cl+=' sel';
+    if(dead&&(e.a===dead||e.b===dead))cl+=' cut';
+    g.setAttribute('class',cl);
+    const mk=isOn?'url(#arA)':(dead&&(e.a===dead||e.b===dead))?'url(#arB)':'url(#ar)';
+    line.setAttribute('marker-end',mk); if(e.bi)line.setAttribute('marker-start',mk);
+  });
+}
+
+/* =====================================================================
+   PANELS
+   ===================================================================== */
+function list(a){return '<ul>'+a.map(x=>'<li>'+x+'</li>').join('')+'</ul>';}
+function cmdBtn(c){const cmd=Array.isArray(c)?c[0]:c, note=Array.isArray(c)?c[1]:'';return '<button class="cmdline" data-copy="'+esc(cmd)+'" title="Click to copy"><code>'+esc(cmd)+'</code></button>'+(note?'<div class="m" style="margin:-1px 0 5px 2px">'+note+'</div>':'');}
+
+function compHTML(c){
+  const links=EDGES.filter(e=>e.a===c.id||e.b===c.id).map(e=>{
+    const other=e.a===c.id?e.b:e.a, dir=e.bi?'⇄':(e.a===c.id?'→':'←');
+    const verb=e.bi?'both ways with':(e.a===c.id?'it connects to':'called by');
+    return '<li><b>'+dir+'</b> <a data-go="'+other+'">'+esc(byId[other].label)+'</a> <span class="m">'+esc(e.label)+' · '+verb+'</span></li>';
+  }).join('');
+  return '<h2>'+esc(c.name)+'</h2><div class="m">'+esc(c.runsAs)+'</div>'
+   +'<p>'+c.role+'</p>'
+   +(c.ports.length?'<h3>Ports</h3>'+c.ports.map(p=>'<span class="port">'+esc(p)+'</span>').join(''):'')
+   +'<h3>Connections</h3><ul>'+links+'</ul>'
+   +'<h3>Config &amp; files</h3>'+list(c.config)
+   +'<h3>Key facts</h3>'+list(c.facts)
+   +'<h3>Debug (click to copy)</h3>'+c.debug.map(cmdBtn).join('')
+   +'<h3>CKA tips</h3>'+list(c.tips)
+   +'<h3>If it dies</h3><div class="box bad"><b>Symptom:</b> '+c.dies.symptom+'</div>'
+   +'<div class="ctrls"><button class="btn" data-kill="'+c.id+'">Try it in Kill mode →</button></div>';
+}
+function edgeHTML(e){
+  return '<h2><a data-go="'+e.a+'">'+esc(byId[e.a].label)+'</a> '+(e.bi?'⇄':'→')+' <a data-go="'+e.b+'">'+esc(byId[e.b].label)+'</a></h2>'
+   +'<div class="m">'+esc(e.label)+'</div><p>'+e.note+'</p>'
+   +'<p class="m">Arrow direction = who opens the connection (client → server). Click a box to see each component in detail.</p>';
+}
+function exploreHTML(){return selEdge?edgeHTML(EDGES.find(e=>e.id===selEdge)):compHTML(byId[sel]);}
+
+function traceHTML(){
+  const sc=SCN[scn], st=curStep(), n=sc.steps.length;
+  return '<h2>'+esc(sc.title)+'</h2>'+cmdBtn(sc.cmd)
+   +'<div class="stephead">Step '+(step+1)+' of '+n+'</div>'
+   +'<h3 class="stept">'+esc(st.t)+'</h3><p>'+st.d+'</p>'
+   +'<div class="ctrls"><button class="btn" data-act="restart">⏮</button><button class="btn" data-act="prev"'+(step===0?' disabled':'')+'>◀ Prev</button>'
+   +'<button class="btn primary" data-act="play">'+(timer?'⏸ Pause':'▶ Play')+'</button>'
+   +'<button class="btn" data-act="next"'+(step===n-1?' disabled':'')+'>Next ▶</button></div>'
+   +'<ol class="steps">'+sc.steps.map((s,i)=>'<li class="'+(i===step?'on':i<step?'done':'')+'" data-step="'+i+'">'+esc(s.t)+'</li>').join('')+'</ol>'
+   +'<div class="tip"><b>CKA angle:</b> '+sc.tip+'</div>';
+}
+
+function killHTML(){
+  if(!S.killed){
+    return '<h2>Kill a component</h2><p>Click any box on the map to fail it. Before you reveal the answer, <b>predict</b>: what stops working, and what keeps running?</p>'
+     +'<div class="tip">Troubleshooting is the heaviest CKA domain. Symptoms point at components: Pending with no events → scheduler; no Pods from a Deployment → controller-manager; connection refused on 6443 → API server; NotReady → kubelet / runtime / CNI.</div>'
+     +'<h3>Quick picks</h3><div class="ctrls">'+['sched','cm','etcd','kubelet','cni','dns'].map(id=>'<button class="btn" data-kill="'+id+'">'+esc(byId[id].label)+'</button>').join('')+'</div>';
+  }
+  const c=byId[S.killed], d=c.dies;
+  let h='<h2 style="color:var(--bad)">✕ '+esc(c.name)+' is down</h2>';
+  if(!killRevealed){
+    return h+'<p>Think first. What breaks? What keeps working? What would you see in <code>kubectl</code>?</p><div class="ctrls"><button class="btn primary" data-act="reveal">Reveal impact</button></div>'
+     +'<p class="m">Tip: say your answer out loud, then reveal.</p>';
+  }
+  h+='<div class="box bad"><b>What you would see</b><br>'+d.symptom+'</div>'
+   +'<div class="box warn"><b>Can no longer do its job</b><br>'+(d.breaks.length?d.breaks.map(x=>'<a data-go="'+x+'">'+esc(byId[x].label)+'</a>').join(', ')+' <span class="m">(amber on the map)</span>':'Nothing else in the cluster.')+'</div>'
+   +'<div class="box ok"><b>Still works</b><br>'+d.keeps+'</div>'
+   +'<h3>How to diagnose and fix</h3><p>'+d.fix+'</p>'
+   +'<h3>Commands</h3>'+c.debug.slice(0,4).map(cmdBtn).join('')
+   +'<div class="ctrls"><button class="btn" data-explore="'+c.id+'">Open in Explore</button></div>';
+  return h;
+}
+
+function renderPanel(){
+  const p=$('#panel');
+  p.innerHTML = mode==='explore'?exploreHTML() : mode==='trace'?traceHTML() : killHTML();
+}
+function renderToolbar(){
+  const t=$('#toolbar');
+  if(mode==='explore')t.innerHTML='<span class="hint">Click a component for details, or click an arrow to see what that connection carries.</span>';
+  else if(mode==='trace')t.innerHTML=SCN.map((s,i)=>'<button class="chip '+(i===scn?'on':'')+'" data-scn="'+i+'">'+esc(s.title)+'</button>').join('');
+  else if(mode==='kill')t.innerHTML='<span class="hint">Click a component to fail it. Red = dead, amber = cannot do its job, faded = unaffected.</span>'+(S.killed?'<button class="chip danger" data-act="resetkill">Reset</button>':'');
+}
+
+/* =====================================================================
+   INTERACTION
+   ===================================================================== */
+function stopTimer(){if(timer){clearInterval(timer);timer=null;}}
+function onNode(id){
+  if(mode==='kill'){S.killed=id;killRevealed=false;save();renderToolbar();renderPanel();refreshMap();return;}
+  setMode('explore');sel=id;selEdge=null;renderPanel();refreshMap();
+}
+function onEdge(id){setMode('explore');selEdge=id;renderPanel();refreshMap();}
+function goStep(i){step=Math.max(0,Math.min(SCN[scn].steps.length-1,i));if(step===SCN[scn].steps.length-1)stopTimer();renderPanel();refreshMap();}
+
+$('#panel').addEventListener('click',ev=>{
+  const t=ev.target.closest('[data-go],[data-copy],[data-kill],[data-explore],[data-act],[data-step]');
+  if(!t)return;
+  if(t.dataset.go){setMode('explore');sel=t.dataset.go;selEdge=null;renderPanel();refreshMap();}
+  else if(t.dataset.copy!==undefined)copyText(t.dataset.copy,t);
+  else if(t.dataset.kill){setMode('kill');S.killed=t.dataset.kill;killRevealed=false;save();renderToolbar();renderPanel();refreshMap();}
+  else if(t.dataset.explore){setMode('explore');sel=t.dataset.explore;selEdge=null;renderPanel();refreshMap();}
+  else if(t.dataset.step!==undefined){stopTimer();goStep(+t.dataset.step);}
+  else if(t.dataset.act){
+    const a=t.dataset.act;
+    if(a==='next'){stopTimer();goStep(step+1);}
+    else if(a==='prev'){stopTimer();goStep(step-1);}
+    else if(a==='restart'){stopTimer();goStep(0);}
+    else if(a==='play'){
+      if(timer){stopTimer();renderPanel();}
+      else{if(step>=SCN[scn].steps.length-1)step=0;timer=setInterval(()=>goStep(step+1),4500);renderPanel();refreshMap();}
+    }
+    else if(a==='reveal'){killRevealed=true;renderPanel();refreshMap();}
+  }
+});
+$('#toolbar').addEventListener('click',ev=>{
+  const t=ev.target.closest('[data-scn],[data-act]');if(!t)return;
+  if(t.dataset.scn!==undefined){stopTimer();scn=+t.dataset.scn;step=0;renderToolbar();renderPanel();refreshMap();}
+  else if(t.dataset.act==='resetkill'){S.killed=null;killRevealed=false;save();renderToolbar();renderPanel();refreshMap();}
+});
+function copyText(text,btn){
+  const done=()=>{if(!btn)return;const o=btn.dataset.o||btn.innerHTML;btn.dataset.o=o;btn.innerHTML='<code>Copied ✓</code>';setTimeout(()=>{btn.innerHTML=o;},900);};
+  const fb=()=>{const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;opacity:0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');}catch(e){}ta.remove();done();};
+  if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done,fb);}else fb();
+}
+
+/* =====================================================================
+   QUIZ  (Leitner boxes: 0 = new/missed … 4 = well known)
+   ===================================================================== */
+const TAGS=['All','Ports','Files','Flow','Troubleshoot','Ops','Components'];
+let qTag='All', qCur=null, qShown=false, qLast=null;
+const W=[12,6,3,1.5,.7];
+function deck(){return CARDS.filter(c=>qTag==='All'||c.tag===qTag);}
+function boxOf(c){const r=S.cards[c.id];return r?r.box:-1;}
+function pickCard(){
+  const d=deck().filter(c=>c.id!==qLast); if(!d.length)return deck()[0]||null;
+  const ws=d.map(c=>{const b=boxOf(c);return b<0?10:W[b];});
+  let r=Math.random()*ws.reduce((a,b)=>a+b,0);
+  for(let i=0;i<d.length;i++){r-=ws[i];if(r<=0)return d[i];}
+  return d[d.length-1];
+}
+function renderQuiz(){
+  const v=$('#quizView');
+  if(!qCur||!deck().includes(qCur))qCur=pickCard();
+  const d=deck(), nNew=d.filter(c=>boxOf(c)<0).length, nMast=d.filter(c=>boxOf(c)>=3).length, nLearn=d.length-nNew-nMast;
+  const pct=x=>(d.length?x/d.length*100:0).toFixed(1)+'%';
+  let h='<div class="ctrls" style="margin-top:0">'+TAGS.map(t=>'<button class="chip '+(t===qTag?'on':'')+'" data-tag="'+t+'">'+t+'</button>').join('')+'</div>';
+  if(qCur){
+    h+='<div class="card"><div class="tag">'+qCur.tag+(boxOf(qCur)>=0?' · box '+(boxOf(qCur)+1)+'/5':' · new')+'</div><div class="q">'+qCur.q+'</div>';
+    if(!qShown)h+='<div class="rowbtn" style="margin-top:auto"><button class="btn primary" data-q="show">Show answer <span class="m" style="color:inherit;opacity:.7">(space)</span></button></div>';
+    else h+='<div class="a">'+qCur.a+'</div><div class="rowbtn"><button class="btn bad" data-q="1">Missed it (1)</button><button class="btn" data-q="2">Shaky (2)</button><button class="btn good" data-q="3">Got it (3)</button>'+(qCur.comp?'<button class="btn" data-q="map" style="margin-left:auto">See on map</button>':'')+'</div>';
+    h+='</div>';
+  }
+  h+='<div class="bar"><i style="width:'+pct(nMast)+';background:var(--ok)"></i><i style="width:'+pct(nLearn)+';background:var(--warn)"></i></div>'
+   +'<div class="stats"><span>'+d.length+' cards</span><span style="color:var(--ok)">'+nMast+' known</span><span style="color:var(--warn)">'+nLearn+' learning</span><span>'+nNew+' new</span><span style="margin-left:auto"><a data-q="reset" style="cursor:pointer;text-decoration:underline">reset progress</a></span></div>'
+   +'<p class="m">Misses come back often, known cards fade out. Keys: space = show, 1 / 2 / 3 = rate.</p>';
+  v.innerHTML=h;
+}
+function rate(n){
+  if(!qCur||!qShown)return;
+  const r=S.cards[qCur.id]||{box:0,n:0};
+  r.n++; r.box=n===1?0:n===2?Math.max(0,r.box):Math.min(4,r.box+1); S.cards[qCur.id]=r; save();
+  qLast=qCur.id; qCur=pickCard(); qShown=false; renderQuiz();
+}
+$('#quizView').addEventListener('click',ev=>{
+  const t=ev.target.closest('[data-tag],[data-q]');if(!t)return;
+  if(t.dataset.tag){qTag=t.dataset.tag;qCur=null;qShown=false;renderQuiz();}
+  else{const q=t.dataset.q;
+    if(q==='show'){qShown=true;renderQuiz();}
+    else if(q==='map'){const id=qCur.comp;setMode('explore');sel=id;selEdge=null;renderPanel();refreshMap();}
+    else if(q==='reset'){if(confirm('Reset all quiz progress?')){S.cards={};save();qCur=null;qShown=false;renderQuiz();}}
+    else rate(+q);}
+});
+
+/* =====================================================================
+   COMMANDS
+   ===================================================================== */
+const EXTRA=[
+ ['kubectl config use-context <ctx>','First thing in every exam task'],
+ ['kubectl api-resources | grep -i <thing>','Find the resource name, short name and whether it is namespaced'],
+ ['kubectl explain <resource>.spec --recursive | less','Field reference without leaving the terminal'],
+ ['kubectl get pods -n kube-system -o wide','Control plane Pods, Pod IPs, and nodes'],
+ ['kubectl get nodes -o wide','Node IPs, OS, runtime, version'],
+ ['kubectl drain <node> --ignore-daemonsets --delete-emptydir-data','Evict Pods before maintenance. <code>kubectl uncordon &lt;node&gt;</code> afterwards.'],
+ ['kubeadm token create --print-join-command','New worker join command'],
+ ['kubeadm certs check-expiration','Expiry of all control plane certs'],
+ ['kubeadm certs renew all','Then restart the static Pods (move manifests out of /etc/kubernetes/manifests and back)'],
+ ['kubeadm upgrade plan','Upgrade kubeadm first, then plan, then apply'],
+ ['kubeadm upgrade apply v1.XX.Y','First control plane node. Others (and workers): kubeadm upgrade node'],
+ ['openssl x509 -in /etc/kubernetes/pki/apiserver.crt -noout -text | grep -E "Not After|DNS:|IP Address"','Inspect a cert: expiry and SANs'],
+ ['grep -r "service-cluster-ip-range\\|cluster-cidr" /etc/kubernetes/manifests','Find the Service and Pod CIDRs of this cluster']
+];
+function cmdGroups(){
+  const g=COMPS.filter(c=>c.debug.length).map(c=>({title:c.name,items:c.debug}));
+  g.push({title:'Cluster ops & general',items:EXTRA});
+  return g;
+}
+let cmdQ='';
+function renderCmds(){
+  const v=$('#cmdView'), q=cmdQ.toLowerCase();
+  let h='<input type="search" id="cmdSearch" placeholder="Filter commands (e.g. etcd, crictl, drain, cert)…" value="'+esc(cmdQ)+'">';
+  cmdGroups().forEach(gr=>{
+    const items=gr.items.filter(i=>!q||(i[0]+' '+i[1]+' '+gr.title).toLowerCase().includes(q));
+    if(!items.length)return;
+    h+='<div class="sec"><h3>'+esc(gr.title)+'</h3>'+items.map(i=>'<div class="crow"><button class="cmdline" data-copy="'+esc(i[0])+'" title="Click to copy"><code>'+esc(i[0])+'</code></button><span></span>'+(i[1]?'<div class="note">'+i[1]+'</div>':'')+'</div>').join('')+'</div>';
+  });
+  v.innerHTML=h;
+  const inp=$('#cmdSearch');inp.addEventListener('input',()=>{cmdQ=inp.value;const pos=inp.selectionStart;renderCmds();const n=$('#cmdSearch');n.focus();n.setSelectionRange(pos,pos);});
+}
+$('#cmdView').addEventListener('click',ev=>{const t=ev.target.closest('[data-copy]');if(t)copyText(t.dataset.copy,t);});
+
+/* =====================================================================
+   TABS / MODES
+   ===================================================================== */
+const TABSET=[['explore','Explore'],['trace','Trace a request'],['kill','Kill a component'],['quiz','Quiz'],['cmds','Commands']];
+function setMode(m){
+  if(m!==mode)stopTimer();
+  mode=m; S.mode=m; save();
+  $('#mapView').hidden=!(m==='explore'||m==='trace'||m==='kill');
+  $('#quizView').hidden=m!=='quiz';
+  $('#cmdView').hidden=m!=='cmds';
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  if(m==='quiz')renderQuiz();
+  else if(m==='cmds')renderCmds();
+  else{renderToolbar();renderPanel();refreshMap();}
+}
+$('#tabs').innerHTML=TABSET.map(([k,l])=>'<button data-m="'+k+'">'+l+'</button>').join('');
+$('#tabs').addEventListener('click',ev=>{const b=ev.target.closest('[data-m]');if(b)setMode(b.dataset.m);});
+
+document.addEventListener('keydown',ev=>{
+  if(ev.target.matches('input,textarea'))return;
+  if(mode==='quiz'){
+    if((ev.key===' '||ev.key==='Enter')&&!qShown){ev.preventDefault();qShown=true;renderQuiz();}
+    else if(qShown&&'123'.includes(ev.key)&&ev.key){rate(+ev.key);}
+  } else if(mode==='trace'){
+    if(ev.key==='ArrowRight'){stopTimer();goStep(step+1);}
+    else if(ev.key==='ArrowLeft'){stopTimer();goStep(step-1);}
+  }
+});
+
+drawMap();
+if(!TABSET.some(t=>t[0]===mode))mode='explore';
+setMode(mode);
+</script>
+</body>
+</html>
